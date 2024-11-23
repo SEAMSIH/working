@@ -17,6 +17,7 @@ const AuthenticationPage = () => {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [faceDetector, setFaceDetector] = useState(null);
   const [multipleFacesDetected, setMultipleFacesDetected] = useState(false);
+  const [noFacesDetected, setNoFacesDetected] = useState(true); // Track when no faces are detected
   const webcamRef = useRef(null);
   const navigate = useNavigate();
 
@@ -64,8 +65,9 @@ const AuthenticationPage = () => {
             flipHorizontal: false,
           });
 
-          // Check if multiple faces are detected (2 or more)
-          setMultipleFacesDetected(faces.length >= 2);
+          // Update face detection states
+          setMultipleFacesDetected(faces.length >= 2); // Check if multiple faces are detected
+          setNoFacesDetected(faces.length === 0); // Check if no faces are detected
         }
       }
     };
@@ -78,6 +80,11 @@ const AuthenticationPage = () => {
   const handleAuthenticate = useCallback(async () => {
     if (!modelLoaded) {
       setError("Models not fully loaded. Please wait.");
+      return;
+    }
+
+    if (noFacesDetected) {
+      setError("No faces detected. Please ensure your face is in the frame.");
       return;
     }
 
@@ -128,7 +135,7 @@ const AuthenticationPage = () => {
       const distance = compareDescriptors(userDescriptor, datasetDescriptor);
 
       // Step 4: Verify if the match is within the acceptable threshold
-      if (distance > 300) {
+      if (distance > 0.6) {
         throw new Error("No matching profile found. Access denied.");
       }
 
@@ -139,7 +146,7 @@ const AuthenticationPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, modelLoaded, multipleFacesDetected]);
+  }, [navigate, modelLoaded, noFacesDetected, multipleFacesDetected]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -176,7 +183,7 @@ const AuthenticationPage = () => {
             <div
               className={`w-3 h-3 rounded-full ${
                 modelLoaded
-                  ? multipleFacesDetected
+                  ? multipleFacesDetected || noFacesDetected
                     ? "bg-red-500"
                     : "bg-green-500"
                   : "bg-gray-500"
@@ -186,6 +193,8 @@ const AuthenticationPage = () => {
               {modelLoaded
                 ? multipleFacesDetected
                   ? "Multiple Faces Detected"
+                  : noFacesDetected
+                  ? "No Faces Detected"
                   : "DeepID Model Ready"
                 : "Loading Models..."}
             </span>
@@ -194,7 +203,12 @@ const AuthenticationPage = () => {
           {/* Action Button */}
           <button
             onClick={handleAuthenticate}
-            disabled={isLoading || !modelLoaded || multipleFacesDetected}
+            disabled={
+              isLoading ||
+              !modelLoaded ||
+              multipleFacesDetected ||
+              noFacesDetected
+            }
             className="w-full py-3 px-6 bg-green-600 hover:bg-green-700 disabled:bg-green-300 
                      text-white disabled:cursor-not-allowed rounded-xl font-semibold 
                      transition-colors shadow-lg hover:shadow-xl disabled:shadow-none
@@ -215,7 +229,6 @@ const AuthenticationPage = () => {
               <CheckCircle2 className="w-5 h-5" />
               <p className="text-sm">Ensure good lighting on your face</p>
             </div>
-            <div className="flex items-center gap-2 text-red-600"></div>
           </div>
 
           {/* Error Message */}
